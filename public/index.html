@@ -33,6 +33,8 @@ function assignRole() {
   return rolesPool.splice(idx, 1)[0];
 }
 
+let votes = []; // ✅ Moved this outside so it persists correctly
+
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
 
@@ -81,8 +83,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  let votes = [];
-
   socket.on('submitVote', ({ jurorNumber, username, vote }) => {
     const voteText = `Juror ${jurorNumber} (${username}): ${vote}`;
     votes.push(voteText);
@@ -103,11 +103,7 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
-});
-const PORT = process.env.PORT || 3000;
-
+// ✅ SINGLE listen block — no duplicates!
 server.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);
 });
