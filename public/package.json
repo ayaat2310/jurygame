@@ -1,7 +1,6 @@
 {
   "name": "jury-game",
   "version": "1.0.0",
-  "description": "Online Jury Game with GM and jurors",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -11,3 +10,4 @@
     "socket.io": "^4.7.2"
   }
 }
+
