@@ -47,6 +47,20 @@
 
     <div id="evidenceDisplay"></div>
   </div>
+<div id="gmControls" class="hidden">
+  <button id="startTimerBtn">Start 2-Hour Timer</button>
+  <button id="nextPhaseBtn">Next Phase</button>
+  <!-- Evidence send text -->
+  <textarea id="evidenceText" placeholder="Evidence text"></textarea>
+  <input id="evidenceRecipient" placeholder="Recipient number or 'all'" />
+  <button id="sendEvidenceBtn">Send Evidence</button>
+  <!-- Upload file -->
+  <form id="uploadForm" enctype="multipart/form-data">
+    <input type="file" name="evidence" />
+    <input name="recipient" placeholder="Recipient number or 'all'" />
+    <button type="submit">Upload Evidence</button>
+  </form>
+</div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
