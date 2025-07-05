@@ -10,20 +10,15 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
-// Static files
 app.use(express.static('public'));
 app.use('/uploads', express.static('uploads'));
 
-// File upload config
 const storage = multer.diskStorage({
   destination: 'uploads/',
-  filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
-  }
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
 });
 const upload = multer({ storage });
 
-// In-memory state
 let players = [];
 let gmId = null;
 let jurorCounter = 0;
@@ -35,22 +30,10 @@ const rolesPool = [
 
 let votes = [];
 let phaseIndex = -1;
-const phases = [
-  "Case Overview",
-  "Discussion",
-  "First Vote",
-  "Evidence Review",
-  "Final Vote"
-];
+const phases = ["Case Overview", "Discussion", "First Vote", "Evidence Review", "Final Vote"];
 
-// Timer: 2 hours
+let timerRunning = false;
 let totalSeconds = 2 * 60 * 60;
-setInterval(() => {
-  if (totalSeconds > 0) {
-    totalSeconds--;
-    io.emit('timerUpdate', totalSeconds);
-  }
-}, 1000);
 
 function assignRole() {
   const idx = Math.floor(Math.random() * rolesPool.length);
@@ -58,7 +41,10 @@ function assignRole() {
 }
 
 function broadcastPlayerList() {
-  io.emit('playerList', players);
+  io.emit('playerList', players.map(p => ({
+    jurorNumber: p.jurorNumber,
+    username: p.username
+  })));
   if (players.length === 12) {
     io.emit('courtSession', "Court is in session!");
   }
@@ -70,7 +56,7 @@ io.on('connection', socket => {
   socket.on('join', username => {
     if (username === 'AYAATGM') {
       gmId = socket.id;
-      socket.emit('joinedGM', { phase: phases[phaseIndex] });
+      socket.emit('joinedGM', { phase: phases[phaseIndex], timerRunning });
     } else {
       if (rolesPool.length === 0) {
         socket.emit('error', 'No more juror slots.');
@@ -78,22 +64,29 @@ io.on('connection', socket => {
       }
       jurorCounter++;
       const role = assignRole();
-      const player = {
-        socketId: socket.id,
-        username,
-        jurorNumber: jurorCounter,
-        role
-      };
+      const player = { socketId: socket.id, username, jurorNumber: jurorCounter, role };
       players.push(player);
 
       socket.emit('joinedPlayer', {
-        jurorNumber: player.jurorNumber,
+        jurorNumber: jurorCounter,
         phase: phases[phaseIndex],
-        role: player.role,
+        role,
         votes
       });
 
       broadcastPlayerList();
+    }
+  });
+
+  socket.on('startTimer', () => {
+    if (socket.id === gmId && !timerRunning) {
+      timerRunning = true;
+      setInterval(() => {
+        if (totalSeconds > 0 && timerRunning) {
+          totalSeconds--;
+          io.emit('timerUpdate', totalSeconds);
+        }
+      }, 1000);
     }
   });
 
@@ -132,7 +125,6 @@ io.on('connection', socket => {
   });
 });
 
-// Upload endpoint for GM
 app.post('/upload', upload.single('evidence'), (req, res) => {
   const fileUrl = `/uploads/${req.file.filename}`;
   const recipient = req.body.recipient;
