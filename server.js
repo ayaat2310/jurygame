@@ -2,6 +2,8 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const fileUpload = require('express-fileupload');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -9,14 +11,19 @@ const io = new Server(server);
 
 const PORT = process.env.PORT || 3000;
 
-// Serve static files from public folder
+// Serve static & uploads
 app.use(express.static('public'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use(fileUpload());
 
 // Game state
-let players = []; // { socketId, username, jurorNumber, role }
+let players = [];
 let gmId = null;
 let votes = [];
 let phaseIndex = -1;
+
+let timeLeft = 2 * 60 * 60; // 2 hours in seconds
+let timerInterval = null;
 
 const phases = [
   "Case Overview",
@@ -43,12 +50,14 @@ io.on('connection', (socket) => {
   socket.on('join', (username) => {
     if (username === 'AYAATGM') {
       gmId = socket.id;
-      socket.emit('joinedGM', { phase: phases[phaseIndex] });
+      socket.emit('joinedGM', { phase: phases[phaseIndex], timeLeft });
+      if (!timerInterval) startTimer();
     } else {
       if (rolesPool.length === 0) {
         socket.emit('error', 'No more juror slots.');
         return;
       }
+
       const jurorNumber = players.length + 1;
       const role = assignRole();
       const player = { socketId: socket.id, username, jurorNumber, role };
@@ -58,8 +67,13 @@ io.on('connection', (socket) => {
         jurorNumber,
         role,
         phase: phases[phaseIndex],
-        publicVotes: votes
+        publicVotes: votes,
+        timeLeft
       });
+
+      if (players.length === 12) {
+        io.emit('courtInSession', "Court is now in session!");
+      }
 
       updateGM();
     }
@@ -103,6 +117,35 @@ io.on('connection', (socket) => {
       io.to(gmId).emit('gmUpdate', players);
     }
   }
+
+  function startTimer() {
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      io.emit('timeUpdate', timeLeft);
+
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        io.emit('timeUp', "Time is up! Court session ended.");
+      }
+    }, 1000);
+  }
+});
+
+// GM uploads files
+app.post('/upload', (req, res) => {
+  if (!req.files || !req.files.file) {
+    return res.status(400).send('No file uploaded.');
+  }
+  const uploadedFile = req.files.file;
+  const uploadPath = path.join(__dirname, 'uploads', uploadedFile.name);
+
+  uploadedFile.mv(uploadPath, (err) => {
+    if (err) return res.status(500).send(err);
+
+    const fileUrl = `/uploads/${uploadedFile.name}`;
+    io.emit('newFile', fileUrl);
+    res.send('File uploaded!');
+  });
 });
 
 server.listen(PORT, () => {
