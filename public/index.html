@@ -1,236 +1,262 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Jury Game</title>
-  <script src="/socket.io/socket.io.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; max-width: 900px; margin: auto; }
-    #gmUpload { margin-top: 20px; }
-    #playersList { border: 1px solid #ccc; padding: 10px; max-height: 150px; overflow-y: auto; }
-    #votesList, #messages { max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-top: 10px; }
-    #messages { height: 150px; }
-  </style>
+<meta charset="UTF-8" />
+<title>The Jury Game</title>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 900px; margin: auto; padding: 20px; }
+  #gameArea, #votingSection, #gmControls { margin-top: 20px; }
+  #messages, #votesList, #playersList { border: 1px solid #ccc; padding: 10px; height: 150px; overflow-y: auto; }
+  #courtStatus { color: darkred; font-weight: bold; margin-top: 10px; }
+  #jurorInfo { font-weight: bold; }
+  button { margin-top: 5px; }
+</style>
 </head>
 <body>
-  <h1>Jury Game</h1>
 
-  <div>
-    <input id="username" placeholder="Enter username (AYAATGM for GM)" />
-    <button id="joinBtn">Join Game</button>
-  </div>
+<h1>The Jury Game</h1>
 
-  <h2 id="jurorInfo"></h2>
-  <h2 id="courtStatus" style="color: red;"></h2>
-  <h3>Current Phase: <span id="phase">N/A</span></h3>
-  <h3>Time Left: <span id="timer">--:--</span></h3>
+<div id="joinSection">
+  <input type="text" id="usernameInput" placeholder="Enter username" />
+  <button id="joinBtn">Join Game</button>
+</div>
+
+<div id="courtStatus"></div>
+<div id="jurorInfo"></div>
+<div id="phaseName"></div>
+
+<div id="gameArea" style="display:none;">
 
   <div id="gmControls" style="display:none;">
-    <h3>Jurors Joined</h3>
-    <div id="playersList"></div>
+    <button id="nextPhaseBtn">Next Phase</button><br/>
 
-    <button id="nextPhaseBtn">Next Phase</button>
+    <input type="text" id="evidenceInput" placeholder="Enter evidence text" />
+    <select id="evidenceRecipient">
+      <option value="all">All Jurors</option>
+    </select>
+    <button id="sendEvidenceBtn">Send Evidence</button><br/><br/>
 
-    <h3>Send Evidence</h3>
-    <textarea id="evidenceText" rows="3" cols="40" placeholder="Type evidence here"></textarea><br/>
-    <label>Send To:
-      <select id="evidenceRecipient">
-        <option value="all">All Jurors</option>
-      </select>
-    </label>
-    <button id="sendEvidenceBtn">Send</button>
-
-    <h3>Upload Evidence File</h3>
-    <form id="uploadForm">
-      <input type="file" name="file" required />
+    <form id="uploadForm" enctype="multipart/form-data">
+      <input type="file" id="fileInput" name="file" />
       <button type="submit">Upload File</button>
     </form>
   </div>
 
-  <h3>Votes</h3>
-  <ul id="votesList"></ul>
+  <h3>Players:</h3>
+  <div id="playersList"></div>
 
   <h3>Chat</h3>
   <div id="messages"></div>
-  <input id="chatInput" placeholder="Type message" />
-  <button id="sendChatBtn">Send</button>
+  <input type="text" id="chatInput" placeholder="Type message..." />
+  <button id="sendMsgBtn">Send</button>
 
-  <h3>Evidence Files</h3>
-  <div id="files"></div>
+  <h3>Votes</h3>
+  <ul id="votesList"></ul>
 
-  <script>
-    const socket = io();
-    let jurorNumber = null;
-    let username = null;
+  <div id="votingSection" style="display:none;">
+    <h3>Cast Your Vote</h3>
+    <select id="voteSelect">
+      <option value="Guilty">Guilty</option>
+      <option value="Not Guilty">Not Guilty</option>
+      <option value="Hung Jury">Hung Jury</option>
+    </select>
+    <button id="submitVoteBtn">Submit Vote</button>
+  </div>
 
-    const usernameInput = document.getElementById('username');
-    const joinBtn = document.getElementById('joinBtn');
-    const jurorInfo = document.getElementById('jurorInfo');
-    const courtStatus = document.getElementById('courtStatus');
-    const phaseSpan = document.getElementById('phase');
-    const timerSpan = document.getElementById('timer');
-    const playersList = document.getElementById('playersList');
-    const votesList = document.getElementById('votesList');
-    const messagesDiv = document.getElementById('messages');
+  <h3>Evidence Received</h3>
+  <ul id="evidenceList"></ul>
 
-    // GM Controls
-    const gmControls = document.getElementById('gmControls');
-    const nextPhaseBtn = document.getElementById('nextPhaseBtn');
-    const evidenceText = document.getElementById('evidenceText');
-    const evidenceRecipient = document.getElementById('evidenceRecipient');
-    const sendEvidenceBtn = document.getElementById('sendEvidenceBtn');
-    const uploadForm = document.getElementById('uploadForm');
-    const filesDiv = document.getElementById('files');
+  <h3>Uploaded Files</h3>
+  <ul id="fileList"></ul>
 
-    // Chat
-    const chatInput = document.getElementById('chatInput');
-    const sendChatBtn = document.getElementById('sendChatBtn');
+</div>
 
-    joinBtn.onclick = () => {
-      username = usernameInput.value.trim();
-      if (!username) {
-        alert('Please enter a username.');
-        return;
-      }
-      socket.emit('join', username);
-    };
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
 
-    // Player joins
-    socket.on('joinedPlayer', (data) => {
-      jurorNumber = data.jurorNumber;
-      jurorInfo.textContent = `You are Juror #${jurorNumber} (${data.role})`;
-      phaseSpan.textContent = data.phase || "N/A";
-      updateVotesList(data.publicVotes || []);
-      updateTimer(data.timeLeft);
+  let username = '';
+  let jurorNumber = null;
+
+  const joinSection = document.getElementById('joinSection');
+  const usernameInput = document.getElementById('usernameInput');
+  const joinBtn = document.getElementById('joinBtn');
+
+  const courtStatus = document.getElementById('courtStatus');
+  const jurorInfo = document.getElementById('jurorInfo');
+  const phaseName = document.getElementById('phaseName');
+
+  const gameArea = document.getElementById('gameArea');
+  const gmControls = document.getElementById('gmControls');
+  const nextPhaseBtn = document.getElementById('nextPhaseBtn');
+
+  const evidenceInput = document.getElementById('evidenceInput');
+  const evidenceRecipient = document.getElementById('evidenceRecipient');
+  const sendEvidenceBtn = document.getElementById('sendEvidenceBtn');
+
+  const uploadForm = document.getElementById('uploadForm');
+  const fileInput = document.getElementById('fileInput');
+
+  const playersList = document.getElementById('playersList');
+  const messages = document.getElementById('messages');
+  const chatInput = document.getElementById('chatInput');
+  const sendMsgBtn = document.getElementById('sendMsgBtn');
+
+  const votesList = document.getElementById('votesList');
+  const votingSection = document.getElementById('votingSection');
+  const voteSelect = document.getElementById('voteSelect');
+  const submitVoteBtn = document.getElementById('submitVoteBtn');
+
+  const evidenceList = document.getElementById('evidenceList');
+  const fileList = document.getElementById('fileList');
+
+  joinBtn.onclick = () => {
+    const name = usernameInput.value.trim();
+    if (!name) return alert('Enter username');
+    username = name;
+    socket.emit('join', username);
+  };
+
+  socket.on('joinedPlayer', (data) => {
+    jurorNumber = data.jurorNumber;
+    jurorInfo.textContent = `You are Juror #${jurorNumber} (${data.role})`;
+    phaseName.textContent = data.phase || 'N/A';
+    joinSection.style.display = 'none';
+    gameArea.style.display = 'block';
+    updateVotingVisibility(data.phase);
+    if (data.courtInSession) courtStatus.textContent = 'Court is now in session.';
+    updateVotesList(data.publicVotes || []);
+  });
+
+  socket.on('joinedGM', (data) => {
+    jurorInfo.textContent = 'You are the GM';
+    phaseName.textContent = data.phase || 'N/A';
+    joinSection.style.display = 'none';
+    gameArea.style.display = 'block';
+    gmControls.style.display = 'block';
+    updateVotingVisibility(data.phase);
+    updateVotesList(data.votes || []);
+    updatePlayersList(data.players || []);
+    if (data.courtInSession) courtStatus.textContent = 'Court is now in session.';
+  });
+
+  socket.on('courtStatus', (msg) => {
+    courtStatus.textContent = msg;
+  });
+
+  socket.on('playerListUpdate', (players) => {
+    updatePlayersList(players);
+  });
+
+  function updatePlayersList(players) {
+    playersList.innerHTML = '';
+    players.forEach(p => {
+      const div = document.createElement('div');
+      div.textContent = `Juror #${p.jurorNumber} - ${p.username}`;
+      const opt = document.createElement('option');
+      opt.value = p.jurorNumber;
+      opt.textContent = `Juror #${p.jurorNumber} - ${p.username}`;
+      evidenceRecipient.appendChild(opt);
+      playersList.appendChild(div);
     });
+  }
 
-    // GM joins
-    socket.on('joinedGM', (data) => {
-      jurorInfo.textContent = `You are the GM`;
-      gmControls.style.display = 'block';
-      phaseSpan.textContent = data.phase || "N/A";
-      updateVotesList(data.votes || []);
-      updatePlayersList(data.players || []);
-      updateTimer(data.timeLeft);
-    });
+  // Chat message
+  sendMsgBtn.onclick = () => {
+    const msg = chatInput.value.trim();
+    if (!msg) return;
+    socket.emit('sendMessage', { username, message: msg });
+    chatInput.value = '';
+  };
 
-    socket.on('courtInSession', (msg) => {
-      courtStatus.textContent = msg;
-    });
+  socket.on('newMessage', ({ username: user, message }) => {
+    const div = document.createElement('div');
+    div.textContent = `${user}: ${message}`;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+  });
 
-    socket.on('phaseUpdated', (phase) => {
-      phaseSpan.textContent = phase;
-      courtStatus.textContent = '';
-    });
+  // Next phase button
+  nextPhaseBtn.onclick = () => {
+    socket.emit('nextPhase');
+  };
 
-    socket.on('updateVotes', (votes) => {
-      updateVotesList(votes);
-    });
+  socket.on('phaseUpdated', ({ phase }) => {
+    phaseName.textContent = phase;
+    updateVotingVisibility(phase);
+    updateVotesList([]);
+  });
 
-    socket.on('timeUpdate', (time) => {
-      updateTimer(time);
-    });
+  // Voting
+  submitVoteBtn.onclick = () => {
+    if (!jurorNumber || !username) return alert('Join first!');
+    const vote = voteSelect.value;
+    socket.emit('submitVote', { jurorNumber, username, vote });
+  };
 
-    socket.on('timeUp', (msg) => {
-      alert(msg);
-    });
-
-    socket.on('newEvidence', (text) => {
-      alert(`New Evidence: ${text}`);
-    });
-
-    socket.on('newFile', (url) => {
-      const link = document.createElement('a');
-      link.href = url;
-      link.innerText = `Download Evidence`;
-      link.target = '_blank';
-      filesDiv.appendChild(link);
-      filesDiv.appendChild(document.createElement('br'));
-    });
-
-    socket.on('message', (msg) => {
-      const p = document.createElement('p');
-      p.textContent = msg;
-      messagesDiv.appendChild(p);
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    });
-
-    // GM updates player list & evidenceRecipient dropdown
-    socket.on('gmUpdate', (players) => {
-      updatePlayersList(players);
-    });
-
-    // Functions
-    function updatePlayersList(players) {
-      playersList.innerHTML = '';
-      evidenceRecipient.innerHTML = '<option value="all">All Jurors</option>';
-      players.forEach(p => {
-        const div = document.createElement('div');
-        div.textContent = `Juror #${p.jurorNumber}: ${p.username} (${p.role})`;
-        playersList.appendChild(div);
-
-        // Add to evidenceRecipient dropdown for private send
-        const opt = document.createElement('option');
-        opt.value = p.jurorNumber;
-        opt.textContent = `Juror #${p.jurorNumber} (${p.username})`;
-        evidenceRecipient.appendChild(opt);
-      });
+  function updateVotingVisibility(phase) {
+    if (phase && phase.toLowerCase().includes('vote')) {
+      votingSection.style.display = (username === 'AYAATGM') ? 'none' : 'block';
+    } else {
+      votingSection.style.display = 'none';
     }
+  }
 
-    function updateVotesList(votes) {
-      votesList.innerHTML = '';
-      votes.forEach(v => {
-        const li = document.createElement('li');
-        li.textContent = v;
-        votesList.appendChild(li);
-      });
-    }
+  socket.on('updateVotes', (votes) => {
+    updateVotesList(votes);
+  });
 
-    function updateTimer(timeLeft) {
-      const mins = Math.floor(timeLeft / 60);
-      const secs = timeLeft % 60;
-      timerSpan.textContent = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
-    }
+  function updateVotesList(votes) {
+    votesList.innerHTML = '';
+    votes.forEach(v => {
+      const li = document.createElement('li');
+      li.textContent = v;
+      votesList.appendChild(li);
+    });
+  }
 
-    // GM buttons/events
-    nextPhaseBtn.onclick = () => {
-      socket.emit('nextPhase');
-    };
+  // Evidence
+  sendEvidenceBtn.onclick = () => {
+    const text = evidenceInput.value.trim();
+    const recipient = evidenceRecipient.value;
+    if (!text) return alert('Enter evidence text');
+    socket.emit('sendEvidence', { text, recipient });
+    evidenceInput.value = '';
+  };
 
-    sendEvidenceBtn.onclick = () => {
-      const text = evidenceText.value.trim();
-      if (!text) return alert('Enter evidence text');
-      const recipient = evidenceRecipient.value;
-      socket.emit('sendEvidence', { text, recipient });
-      evidenceText.value = '';
-    };
+  socket.on('newEvidence', (text) => {
+    const li = document.createElement('li');
+    li.textContent = text;
+    evidenceList.appendChild(li);
+  });
 
-    uploadForm.onsubmit = async (e) => {
-      e.preventDefault();
-      const fileInput = uploadForm.querySelector('input[name="file"]');
-      if (!fileInput.files[0]) return alert('Choose a file');
+  // File upload
+  uploadForm.onsubmit = (e) => {
+    e.preventDefault();
+    const file = fileInput.files[0];
+    if (!file) return alert('Choose a file');
+    const formData = new FormData();
+    formData.append('file', file);
 
-      const formData = new FormData();
-      formData.append('file', fileInput.files[0]);
-
-      try {
-        const res = await fetch('/upload', { method: 'POST', body: formData });
-        if (!res.ok) throw new Error('Upload failed');
-        alert('File uploaded and sent!');
+    fetch('/upload', { method: 'POST', body: formData })
+      .then(res => res.json())
+      .then(data => {
+        alert('File uploaded!');
         fileInput.value = '';
-      } catch (err) {
-        alert('Upload failed: ' + err.message);
-      }
-    };
+      })
+      .catch(err => alert('Upload failed'));
+  };
 
-    // Chat send
-    sendChatBtn.onclick = () => {
-      const msg = chatInput.value.trim();
-      if (!msg) return;
-      socket.emit('chatMessage', msg);
-      chatInput.value = '';
-    };
+  socket.on('newFile', ({ originalName, url }) => {
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.href = url;
+    a.textContent = originalName;
+    a.target = "_blank";
+    li.appendChild(a);
+    fileList.appendChild(li);
+  });
+</script>
 
-  </script>
 </body>
 </html>
