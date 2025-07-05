@@ -2,42 +2,53 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>The Jury Game</title>
+  <title>Jury Game</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <h1>The Jury Game</h1>
-
-  <input id="username" placeholder="Enter Username (AYAATGM for GM)">
-  <button id="joinBtn">Join Game</button>
-
-  <div id="info"></div>
-
-  <div id="players"></div>
-  <div id="phase"></div>
-  <div id="votes"></div>
-  <div id="evidence"></div>
-  <div id="timer">Time Left: 02:00:00</div>
-
-  <div id="gmControls" style="display:none;">
-    <button id="nextPhaseBtn">Next Phase</button>
-    <button id="startTimerBtn">Start 2-Hour Timer</button>
-    <textarea id="evidenceText"></textarea>
-    <input id="recipient" placeholder="Recipient Juror # or 'all'">
-    <button id="sendEvidenceBtn">Send Evidence</button>
-
-    <form id="uploadForm" enctype="multipart/form-data">
-      <input type="file" name="file">
-      <button type="submit">Upload File</button>
-    </form>
+  <div id="joinSection">
+    <input id="usernameInput" placeholder="Enter username" />
+    <button id="joinBtn">Join</button>
   </div>
 
-  <div id="voteSection" style="display:none;">
-    <input id="voteInput" placeholder="Your vote">
-    <button id="submitVoteBtn">Submit Vote</button>
+  <div id="gameArea" class="hidden">
+    <div id="playerInfo"></div>
+    <div id="timer">Time Left: </div>
+    <div id="phase">Current Phase: </div>
+    <div id="playerList"></div>
+    <div id="courtStatus"></div>
+
+    <div id="gmControls" class="hidden">
+      <button id="nextPhaseBtn">Next Phase</button>
+      <textarea id="evidenceText" placeholder="Evidence text"></textarea>
+      <input id="evidenceRecipient" placeholder="Recipient number or 'all'" />
+      <button id="sendEvidenceBtn">Send Evidence</button>
+      <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="evidence" />
+        <input name="recipient" placeholder="Recipient number or 'all'" />
+        <button type="submit">Upload Evidence</button>
+      </form>
+    </div>
+
+    <div id="votes">
+      <h3>Public Votes</h3>
+      <input id="voteInput" placeholder="Your vote" />
+      <button id="voteBtn">Submit Vote</button>
+      <ul id="voteList"></ul>
+    </div>
+
+    <div id="chat">
+      <h3>Chat</h3>
+      <div id="chatMessages"></div>
+      <input id="chatInput" placeholder="Type message" />
+      <button id="sendChatBtn">Send</button>
+    </div>
+
+    <div id="evidenceDisplay"></div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
 </body>
 </html>
-
