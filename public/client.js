@@ -26,6 +26,12 @@ const chatInput = document.getElementById('chatInput');
 const sendChatBtn = document.getElementById('sendChatBtn');
 
 const evidenceDisplay = document.getElementById('evidenceDisplay');
+const startTimerBtn = document.getElementById('startTimerBtn');
+
+startTimerBtn.onclick = () => {
+  socket.emit('startTimer');
+};
+
 
 let username = '';
 let jurorNumber = '';
