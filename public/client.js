@@ -1,91 +1,128 @@
 const socket = io();
 
-const usernameInput = document.getElementById('username');
+const usernameInput = document.getElementById('usernameInput');
 const joinBtn = document.getElementById('joinBtn');
-const info = document.getElementById('info');
-const playersDiv = document.getElementById('players');
-const phaseDiv = document.getElementById('phase');
-const votesDiv = document.getElementById('votes');
-const evidenceDiv = document.getElementById('evidence');
-const timerDiv = document.getElementById('timer');
+const joinSection = document.getElementById('joinSection');
+const gameArea = document.getElementById('gameArea');
+const playerInfo = document.getElementById('playerInfo');
+const phase = document.getElementById('phase');
+const playerList = document.getElementById('playerList');
+const courtStatus = document.getElementById('courtStatus');
+const timer = document.getElementById('timer');
+
+const gmControls = document.getElementById('gmControls');
+const nextPhaseBtn = document.getElementById('nextPhaseBtn');
+const evidenceText = document.getElementById('evidenceText');
+const evidenceRecipient = document.getElementById('evidenceRecipient');
+const sendEvidenceBtn = document.getElementById('sendEvidenceBtn');
+const uploadForm = document.getElementById('uploadForm');
+
+const voteInput = document.getElementById('voteInput');
+const voteBtn = document.getElementById('voteBtn');
+const voteList = document.getElementById('voteList');
+
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const sendChatBtn = document.getElementById('sendChatBtn');
+
+const evidenceDisplay = document.getElementById('evidenceDisplay');
+
+let username = '';
+let jurorNumber = '';
 
 joinBtn.onclick = () => {
-  socket.emit('join', usernameInput.value);
+  username = usernameInput.value.trim();
+  if (!username) return alert("Enter a username");
+  socket.emit('join', username);
 };
 
-socket.on('joinedPlayer', ({ jurorNumber, role, phase, publicVotes }) => {
-  info.innerText = `You are Juror #${jurorNumber} - Role: ${role}`;
-  phaseDiv.innerText = `Current Phase: ${phase}`;
-  document.getElementById('voteSection').style.display = 'block';
-  votesDiv.innerText = publicVotes.join('\n');
+socket.on('joinedGM', data => {
+  joinSection.classList.add('hidden');
+  gameArea.classList.remove('hidden');
+  gmControls.classList.remove('hidden');
+  phase.innerText = `Current Phase: ${data.phase}`;
 });
 
-socket.on('joinedGM', ({ phase }) => {
-  info.innerText = `You are the Game Master`;
-  phaseDiv.innerText = `Current Phase: ${phase}`;
-  document.getElementById('gmControls').style.display = 'block';
+socket.on('joinedPlayer', data => {
+  joinSection.classList.add('hidden');
+  gameArea.classList.remove('hidden');
+  jurorNumber = data.jurorNumber;
+  playerInfo.innerText = `You are Juror ${jurorNumber}`;
+  phase.innerText = `Current Phase: ${data.phase}`;
+  data.votes.forEach(v => addVote(v));
 });
 
-socket.on('playerList', (list) => {
-  playersDiv.innerHTML = '<h3>Players:</h3>' + list.map(p => `Juror #${p.jurorNumber}: ${p.username}`).join('<br>');
+socket.on('phaseUpdated', newPhase => {
+  phase.innerText = `Current Phase: ${newPhase}`;
 });
 
-socket.on('courtStart', () => alert('🧑‍⚖️ Court is in session!'));
-
-socket.on('phaseUpdated', (phase) => {
-  phaseDiv.innerText = `Current Phase: ${phase}`;
+socket.on('playerList', players => {
+  playerList.innerHTML = `<h3>Jurors</h3>` + players.map(p =>
+    `Juror ${p.jurorNumber}: ${p.username}`
+  ).join('<br>');
 });
 
-socket.on('updateVotes', (votes) => {
-  votesDiv.innerText = votes.join('\n');
+socket.on('courtSession', msg => {
+  courtStatus.innerText = msg;
 });
 
-socket.on('newEvidence', (text) => {
-  evidenceDiv.innerHTML += `<p>${text}</p>`;
+socket.on('updateVotes', votes => {
+  voteList.innerHTML = '';
+  votes.forEach(v => addVote(v));
 });
 
-socket.on('newFile', (url) => {
-  evidenceDiv.innerHTML += `<p>📄 New file: <a href="${url}" target="_blank">${url}</a></p>`;
-});
-
-socket.on('timerUpdate', (secondsLeft) => {
-  const hours = Math.floor(secondsLeft / 3600);
-  const minutes = Math.floor((secondsLeft % 3600) / 60);
-  const seconds = secondsLeft % 60;
-  timerDiv.innerText = `Time Left: ${hours.toString().padStart(2,'0')}:${minutes.toString().padStart(2,'0')}:${seconds.toString().padStart(2,'0')}`;
-});
-
-socket.on('gameEnded', () => {
-  alert('⏰ Time is up! The session has ended.');
-});
-
-// GM Controls
-document.getElementById('nextPhaseBtn').onclick = () => socket.emit('nextPhase');
-document.getElementById('startTimerBtn').onclick = () => socket.emit('startTimer');
-
-document.getElementById('sendEvidenceBtn').onclick = () => {
-  const text = document.getElementById('evidenceText').value;
-  const recipient = document.getElementById('recipient').value;
-  socket.emit('sendEvidence', { text, recipient });
+voteBtn.onclick = () => {
+  const vote = voteInput.value.trim();
+  if (vote) {
+    socket.emit('submitVote', { jurorNumber, username, vote });
+    voteInput.value = '';
+  }
 };
 
-document.getElementById('submitVoteBtn').onclick = () => {
-  const vote = document.getElementById('voteInput').value;
-  socket.emit('submitVote', { vote, username: usernameInput.value, jurorNumber: parseInt(info.innerText.split('#')[1]) });
+function addVote(vote) {
+  const li = document.createElement('li');
+  li.innerHTML = vote;
+  voteList.appendChild(li);
+}
+
+socket.on('timerUpdate', seconds => {
+  const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
+  const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+  const s = String(seconds % 60).padStart(2, '0');
+  timer.innerText = `Time Left: ${h}:${m}:${s}`;
+});
+
+nextPhaseBtn.onclick = () => socket.emit('nextPhase');
+
+sendEvidenceBtn.onclick = () => {
+  const text = evidenceText.value.trim();
+  const recipient = evidenceRecipient.value.trim();
+  if (text && recipient) {
+    socket.emit('sendEvidence', { text, recipient });
+    evidenceText.value = '';
+    evidenceRecipient.value = '';
+  }
 };
 
-// Upload file
-document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+uploadForm.onsubmit = e => {
   e.preventDefault();
-  const fileInput = e.target.querySelector('input[type="file"]');
-  const formData = new FormData();
-  formData.append('file', fileInput.files[0]);
+  const formData = new FormData(uploadForm);
+  fetch('/upload', { method: 'POST', body: formData });
+  uploadForm.reset();
+};
 
-  const response = await fetch('/upload', {
-    method: 'POST',
-    body: formData
-  });
+socket.on('newEvidence', msg => {
+  evidenceDisplay.innerHTML += `<div>${msg}</div>`;
+});
 
-  const data = await response.json();
-  alert('File uploaded: ' + data.fileUrl);
+sendChatBtn.onclick = () => {
+  const message = chatInput.value.trim();
+  if (message) {
+    socket.emit('chatMessage', { username, message });
+    chatInput.value = '';
+  }
+};
+
+socket.on('chatMessage', ({ username, message }) => {
+  chatMessages.innerHTML += `<div><strong>${username}:</strong> ${message}</div>`;
 });
