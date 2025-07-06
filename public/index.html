@@ -1,66 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
   <title>Jury Game</title>
-  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>The Jury Game</h1>
-  <div id="joinSection">
-    <input id="usernameInput" placeholder="Enter username" />
-    <button id="joinBtn">Join</button>
+  <div id="login">
+    <input id="username" placeholder="Enter your name" />
+    <button onclick="join()">Join</button>
   </div>
 
-  <div id="gameArea" class="hidden">
-    <div id="playerInfo"></div>
-    <div id="timer">Time Left: </div>
-    <div id="phase">Current Phase: </div>
-    <div id="playerList"></div>
-    <div id="courtStatus"></div>
+  <div id="game" style="display:none;">
+    <h2>Phase: <span id="phase"></span></h2>
+    <h3>Time Remaining: <span id="masterTime"></span></h3>
 
-    <div id="gmControls" class="hidden">
-      <button id="nextPhaseBtn">Next Phase</button>
-      <textarea id="evidenceText" placeholder="Evidence text"></textarea>
-      <input id="evidenceRecipient" placeholder="Recipient number or 'all'" />
-      <button id="sendEvidenceBtn">Send Evidence</button>
-      <form id="uploadForm" enctype="multipart/form-data">
-        <input type="file" name="evidence" />
-        <input name="recipient" placeholder="Recipient number or 'all'" />
-        <button type="submit">Upload Evidence</button>
+    <div id="players"></div>
+    <div id="votes"></div>
+    <div id="evidence"></div>
+
+    <div id="chat"></div>
+    <input id="chatInput" placeholder="Message" />
+    <button onclick="sendChat()">Send</button>
+
+    <div id="gmControls" style="display:none;">
+      <button onclick="startMasterTimer()">Start Timer</button>
+      <button onclick="nextPhase()">Next Phase</button>
+      <input id="evidenceText" placeholder="Evidence Text" />
+      <input id="recipient" placeholder="Recipient or 'all'" />
+      <button onclick="sendEvidence()">Send Evidence</button>
+      <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" />
+        <button type="submit">Upload File</button>
       </form>
     </div>
 
-    <div id="votes">
-      <h3>Public Votes</h3>
-      <input id="voteInput" placeholder="Your vote" />
-      <button id="voteBtn">Submit Vote</button>
-      <ul id="voteList"></ul>
+    <div id="voteSection">
+      <input id="voteInput" placeholder="Vote (Guilty/Not Guilty/Neutral)" />
+      <button onclick="submitVote()">Submit Vote</button>
     </div>
-
-    <div id="chat">
-      <h3>Chat</h3>
-      <div id="chatMessages"></div>
-      <input id="chatInput" placeholder="Type message" />
-      <button id="sendChatBtn">Send</button>
-    </div>
-
-    <div id="evidenceDisplay"></div>
   </div>
-<div id="gmControls" class="hidden">
-  <button id="startTimerBtn">Start 2-Hour Timer</button>
-  <button id="nextPhaseBtn">Next Phase</button>
-  <!-- Evidence send text -->
-  <textarea id="evidenceText" placeholder="Evidence text"></textarea>
-  <input id="evidenceRecipient" placeholder="Recipient number or 'all'" />
-  <button id="sendEvidenceBtn">Send Evidence</button>
-  <!-- Upload file -->
-  <form id="uploadForm" enctype="multipart/form-data">
-    <input type="file" name="evidence" />
-    <input name="recipient" placeholder="Recipient number or 'all'" />
-    <button type="submit">Upload Evidence</button>
-  </form>
-</div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
