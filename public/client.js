@@ -1,68 +1,47 @@
 const socket = io();
-let jurorNumber = null;
+let isGM = false;
+let myRole = null;
 
-function join() {
-  const username = document.getElementById('username').value;
-  socket.emit('join', username);
-}
+// DOM Elements
+const phaseDisplay = document.getElementById('phaseDisplay');
+const timerDisplay = document.getElementById('timer');
+const gmPanel = document.getElementById('gmPanel');
 
-socket.on('joinedPlayer', data => {
-  document.getElementById('login').style.display = 'none';
-  document.getElementById('game').style.display = 'block';
-  jurorNumber = data.jurorNumber;
-  updatePhase(data.phase);
-  updateTime(data.masterTime);
+// Join game
+const username = prompt('Enter your name:') || 'Juror';
+if (username.toLowerCase() === 'ayaatgm') isGM = true;
+socket.emit('join', username);
+
+// Socket listeners
+socket.on('roleAssigned', (data) => {
+  myRole = data.role;
+  if (isGM) gmPanel.classList.remove('hidden');
 });
 
-socket.on('joinedGM', data => {
-  document.getElementById('login').style.display = 'none';
-  document.getElementById('game').style.display = 'block';
-  document.getElementById('gmControls').style.display = 'block';
-  updatePhase(data.phase);
-  updateTime(data.masterTime);
+socket.on('phaseChange', (phase) => {
+  phaseDisplay.textContent = `Phase: ${phase}`;
 });
 
-socket.on('phaseUpdated', updatePhase);
-socket.on('masterTimeUpdate', updateTime);
-socket.on('playersUpdate', players => {
-  document.getElementById('players').innerHTML = players.map(p =>
-    `Juror ${p.jurorNumber}: ${p.username}`).join('<br>');
+socket.on('newEvidence', (evidence) => {
+  const evidenceDiv = document.createElement('div');
+  evidenceDiv.className = 'evidence';
+  evidenceDiv.innerHTML = `<a href="${evidence.path}" target="_blank">${evidence.name}</a>`;
+  document.getElementById('evidenceDisplay').appendChild(evidenceDiv);
 });
-socket.on('votesUpdated', votes => {
-  document.getElementById('votes').innerHTML = votes.map(v =>
-    `Juror ${v.jurorNumber}: ${v.history.join(' → ')}`).join('<br>');
-});
-socket.on('chatUpdate', chat => {
-  document.getElementById('chat').innerHTML = chat.join('<br>');
-});
-socket.on('newEvidence', text => {
-  document.getElementById('evidence').innerHTML += `<br>${text}`;
-});
-socket.on('courtInSession', () => alert('Court is in session!'));
 
-function updatePhase(phase) {
-  document.getElementById('phase').innerText = phase.name;
+// Timer logic
+function updateTimer(seconds) {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  timerDisplay.textContent = `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-function updateTime(seconds) {
-  const min = Math.floor(seconds / 60);
-  const sec = seconds % 60;
-  document.getElementById('masterTime').innerText = `${min}:${sec.toString().padStart(2, '0')}`;
-}
+// GM controls
+document.getElementById('startGame')?.addEventListener('click', () => {
+  socket.emit('startGame');
+});
 
-function startMasterTimer() { socket.emit('startMasterTimer'); }
-function nextPhase() { socket.emit('nextPhase'); }
-function sendChat() {
-  const msg = document.getElementById('chatInput').value;
-  socket.emit('chatMessage', msg);
-  document.getElementById('chatInput').value = '';
-}
-function submitVote() {
-  const vote = document.getElementById('voteInput').value;
-  socket.emit('submitVote', { jurorNumber, vote });
-}
-function sendEvidence() {
-  const text = document.getElementById('evidenceText').value;
-  const recipient = document.getElementById('recipient').value;
-  socket.emit('sendEvidence', { text, recipient });
-}
+document.getElementById('nextPhase')?.addEventListener('click', () => {
+  socket.emit('nextPhase');
+});
