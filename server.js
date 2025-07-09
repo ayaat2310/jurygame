@@ -1,133 +1,87 @@
-// server.js
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
+const socketIO = require('socket.io');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+const server = require('http').createServer(app);
+const io = socketIO(server);
 const PORT = process.env.PORT || 3000;
 
-// Serve static files
+// Multer setup for GM file uploads
+const upload = multer({ dest: 'public/uploads/' });
 app.use(express.static('public'));
 
-// Multer setup for GM uploads only
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'public/uploads'),
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
-});
-const upload = multer({ storage });
+// Game state
+const gameState = {
+  players: [],
+  phase: 'waiting',
+  timer: 7200, // 2 hours in seconds
+  roles: []
+};
 
-app.post('/upload', upload.single('file'), (req, res) => {
-  res.send('File uploaded!');
-});
-
-// State
-let players = [];  // { socketId, username, jurorNumber, role, votes: [] }
-let gmId = null;
-let rolesPool = [
-  ...Array(4).fill('Guilty Jury'),
-  ...Array(4).fill('Not Guilty Jury'),
-  ...Array(4).fill('Neutral Jury')
-];
-let votes = [];
-let phaseIndex = -1;
-let timer = null;
-let timeLeft = 7200; // 2 hours in seconds
-const phases = [
-  "Case Overview",
-  "Evidence Selection & Voting",
-  "Evidence Showcase",
-  "Discussion & Vote",
-  "Final Vote"
-];
+// Assign roles (4 Guilty, 4 Not Guilty, 4 Neutral)
+function assignRoles() {
+  const roles = [];
+  for (let i = 0; i < 4; i++) roles.push('guilty', 'not_guilty', 'neutral');
+  return roles.sort(() => Math.random() - 0.5);
+}
 
 io.on('connection', (socket) => {
-  console.log('Connected:', socket.id);
+  console.log('New connection:', socket.id);
 
+  // Player joins
   socket.on('join', (username) => {
-    if (username === 'AYAATGM') {
-      gmId = socket.id;
-      socket.emit('joinedGM', { phases, players });
+    const isGM = username.toLowerCase() === 'ayaatgm';
+    const player = { id: socket.id, username, isGM, jurorNumber: gameState.players.length + 1 };
+    
+    if (isGM) {
+      gameState.roles = assignRoles();
+      player.role = 'gm';
+    } else if (gameState.players.length < 12) {
+      player.role = gameState.roles.pop();
     } else {
-      if (rolesPool.length === 0) {
-        socket.emit('full');
-        return;
-      }
-      const jurorNumber = players.length + 1;
-      const idx = Math.floor(Math.random() * rolesPool.length);
-      const role = rolesPool.splice(idx, 1)[0];
-      const player = { socketId: socket.id, username, jurorNumber, role, votes: [] };
-      players.push(player);
+      socket.emit('error', 'Room full (max 12 jurors)');
+      return;
+    }
 
-      socket.emit('joinedPlayer', { jurorNumber, role });
+    gameState.players.push(player);
+    io.emit('playerUpdate', gameState.players);
+    socket.emit('roleAssigned', { jurorNumber: player.jurorNumber, role: player.role });
 
-      io.emit('updatePlayers', players.length);
-
-      if (players.length === 12) {
-        io.emit('message', 'Court is in session!');
-      }
+    if (gameState.players.length === 13) {
+      io.emit('systemMessage', 'Court is in session!');
     }
   });
 
+  // GM controls
   socket.on('startGame', () => {
-    if (socket.id !== gmId) return;
-
-    phaseIndex = 0;
-    io.emit('phaseChanged', phases[phaseIndex]);
-
-    timer = setInterval(() => {
-      timeLeft--;
-      io.emit('timer', timeLeft);
-
-      if (timeLeft <= 0) {
-        clearInterval(timer);
-        io.emit('message', 'Session Ended');
-      }
-    }, 1000);
+    gameState.phase = 'overview';
+    io.emit('phaseChange', gameState.phase);
   });
 
   socket.on('nextPhase', () => {
-    if (socket.id !== gmId) return;
+    // Phase rotation logic here
+    io.emit('phaseChange', gameState.phase);
+  });
 
-    if (phaseIndex < phases.length - 1) {
-      phaseIndex++;
-      io.emit('phaseChanged', phases[phaseIndex]);
+  // File upload (GM only)
+  socket.on('uploadEvidence', upload.single('evidence'), (file) => {
+    if (file) {
+      io.emit('newEvidence', { name: file.originalname, path: `/uploads/${file.filename}` });
     }
   });
 
-  socket.on('submitVote', ({ jurorNumber, vote }) => {
-    const player = players.find(p => p.jurorNumber === jurorNumber);
-    if (!player) return;
-
-    const lastVote = player.votes[player.votes.length - 1];
-    if (lastVote && lastVote !== vote) {
-      player.votes.push(vote);
-      io.emit('voteUpdate', `Juror ${jurorNumber} changed mind to ${vote}`);
-    } else if (!lastVote) {
-      player.votes.push(vote);
-      io.emit('voteUpdate', `Juror ${jurorNumber} voted ${vote}`);
-    }
-  });
-
-  socket.on('sendEvidence', ({ text, recipient }) => {
-    if (socket.id !== gmId) return;
-
-    if (recipient === 'all') {
-      players.forEach(p => io.to(p.socketId).emit('newEvidence', text));
-    } else {
-      const juror = players.find(p => p.jurorNumber == recipient);
-      if (juror) io.to(juror.socketId).emit('newEvidence', text);
-    }
+  // Chat
+  socket.on('sendMessage', (msg) => {
+    io.emit('newMessage', { user: msg.user, text: msg.text });
   });
 
   socket.on('disconnect', () => {
-    console.log('Disconnected:', socket.id);
-    players = players.filter(p => p.socketId !== socket.id);
-    if (socket.id === gmId) gmId = null;
+    gameState.players = gameState.players.filter(p => p.id !== socket.id);
+    io.emit('playerUpdate', gameState.players);
   });
 });
 
-server.listen(PORT, () => console.log(`Server running on ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
