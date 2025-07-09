@@ -1,40 +1,13 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Jury Game</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div class="courtroom">
-    <header>
-      <h1>⚖️ Jury Game</h1>
-      <div id="phaseDisplay">Waiting for GM to start...</div>
-      <div id="timer">02:00:00</div>
-    </header>
-
-    <main>
-      <section id="gameArea">
-        <div id="evidenceDisplay"></div>
-        <div id="votingInterface" class="hidden">
-          <button class="vote-btn" data-vote="guilty">Guilty</button>
-          <button class="vote-btn" data-vote="not_guilty">Not Guilty</button>
-        </div>
-      </section>
-
-      <section id="chatArea">
-        <div id="messages"></div>
-        <input id="messageInput" placeholder="Type your message...">
-        <button id="sendMessage">Send</button>
-      </section>
-    </main>
-
-    <div id="gmPanel" class="hidden">
-      <input type="file" id="evidenceUpload">
-      <button id="startGame">Start Game</button>
-      <button id="nextPhase">Next Phase</button>
-    </div>
-  </div>
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="client.js"></script>
-</body>
-</html>
+{
+  "name": "jurygame",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "multer": "^1.4.5"
+  }
+}
