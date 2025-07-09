@@ -1,103 +1,114 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Jury Game</title>
-  <style>
-    body { font-family: Arial; text-align: center; }
-    #chat, #votes, #timer { margin: 20px auto; width: 50%; }
-  </style>
+  <meta charset="UTF-8" />
+  <title>Jury Game Courtroom</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>Jury Game</h1>
-  <div>
-    <input id="username" placeholder="Enter your name">
-    <button onclick="joinGame()">Join</button>
+  <h1>Welcome to the Jury Game</h1>
+  <div id="login">
+    <input id="username" placeholder="Enter your name" />
+    <button id="joinBtn">Join</button>
   </div>
 
-  <div id="phase">Phase: Not started</div>
-  <div id="timer">Timer: --:--</div>
+  <div id="game" style="display:none;">
+    <p id="roleInfo"></p>
+    <p id="phaseInfo"></p>
+    <p id="timer"></p>
+    <p id="message"></p>
+    <p>Players joined: <span id="playerCount"></span></p>
 
-  <div id="chat">
-    <h3>Chat</h3>
-    <div id="messages"></div>
-    <input id="msgInput" placeholder="Type message">
-    <button onclick="sendMessage()">Send</button>
-  </div>
+    <div id="gmControls" style="display:none;">
+      <button id="startBtn">Start Game</button>
+      <button id="nextBtn">Next Phase</button>
+      <input id="evidenceText" placeholder="Evidence text" />
+      <input id="recipient" placeholder="Juror # or 'all'" />
+      <button id="sendEvidenceBtn">Send Evidence</button>
+      <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" />
+        <button type="submit">Upload File</button>
+      </form>
+    </div>
 
-  <div id="votes">
-    <h3>Votes</h3>
-    <div id="voteHistory"></div>
-    <input id="voteInput" placeholder="Your vote">
-    <button onclick="submitVote()">Vote</button>
-  </div>
+    <div id="votes">
+      <input id="vote" placeholder="Your Vote" />
+      <button id="voteBtn">Submit Vote</button>
+    </div>
 
-  <div id="upload">
-    <h3>GM File Upload</h3>
-    <input type="file" id="fileInput">
-    <button onclick="uploadFile()">Upload</button>
+    <div id="evidence"></div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-    let jurorNumber = null;
-    let username = null;
+    const joinBtn = document.getElementById('joinBtn');
+    const startBtn = document.getElementById('startBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const voteBtn = document.getElementById('voteBtn');
+    const sendEvidenceBtn = document.getElementById('sendEvidenceBtn');
 
-    function joinGame() {
-      username = document.getElementById('username').value;
-      socket.emit('join', username);
-    }
+    joinBtn.onclick = () => {
+      socket.emit('join', document.getElementById('username').value);
+    };
+
+    startBtn.onclick = () => socket.emit('startGame');
+    nextBtn.onclick = () => socket.emit('nextPhase');
+
+    voteBtn.onclick = () => {
+      socket.emit('submitVote', {
+        jurorNumber: document.getElementById('roleInfo').dataset.juror,
+        vote: document.getElementById('vote').value
+      });
+    };
+
+    sendEvidenceBtn.onclick = () => {
+      socket.emit('sendEvidence', {
+        text: document.getElementById('evidenceText').value,
+        recipient: document.getElementById('recipient').value
+      });
+    };
+
+    socket.on('joinedGM', () => {
+      document.getElementById('login').style.display = 'none';
+      document.getElementById('game').style.display = 'block';
+      document.getElementById('gmControls').style.display = 'block';
+    });
 
     socket.on('joinedPlayer', data => {
-      jurorNumber = data.jurorNumber;
-      alert(`You are Juror ${jurorNumber} - ${data.role}`);
+      document.getElementById('login').style.display = 'none';
+      document.getElementById('game').style.display = 'block';
+      const roleInfo = document.getElementById('roleInfo');
+      roleInfo.innerText = `Juror #${data.jurorNumber} - Your role: ${data.role}`;
+      roleInfo.dataset.juror = data.jurorNumber;
     });
 
-    socket.on('joinedGM', data => {
-      alert('You are the GM');
+    socket.on('updatePlayers', count => {
+      document.getElementById('playerCount').innerText = count;
     });
 
-    socket.on('phaseUpdated', phase => {
-      document.getElementById('phase').innerText = 'Phase: ' + phase;
+    socket.on('message', msg => {
+      document.getElementById('message').innerText = msg;
     });
 
-    socket.on('timeUpdate', secs => {
-      const min = Math.floor(secs / 60).toString().padStart(2, '0');
-      const sec = (secs % 60).toString().padStart(2, '0');
-      document.getElementById('timer').innerText = `Timer: ${min}:${sec}`;
+    socket.on('phaseChanged', phase => {
+      document.getElementById('phaseInfo').innerText = `Phase: ${phase}`;
     });
 
-    socket.on('chatMessage', msg => {
-      const el = document.createElement('div');
-      el.innerText = msg;
-      document.getElementById('messages').appendChild(el);
+    socket.on('timer', seconds => {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      document.getElementById('timer').innerText = `Time Left: ${mins}:${secs}`;
     });
 
-    function sendMessage() {
-      const msg = document.getElementById('msgInput').value;
-      socket.emit('chatMessage', msg);
-    }
-
-    function submitVote() {
-      const vote = document.getElementById('voteInput').value;
-      socket.emit('submitVote', { jurorNumber, username, vote });
-    }
-
-    socket.on('voteUpdate', update => {
-      const el = document.createElement('div');
-      el.innerText = update;
-      document.getElementById('voteHistory').appendChild(el);
+    socket.on('voteUpdate', text => {
+      document.getElementById('message').innerText = text;
     });
 
-    function uploadFile() {
-      const file = document.getElementById('fileInput').files[0];
-      const formData = new FormData();
-      formData.append('file', file);
-
-      fetch('/upload', { method: 'POST', body: formData })
-        .then(res => res.json())
-        .then(data => alert('File uploaded: ' + data.fileUrl));
-    }
+    socket.on('newEvidence', text => {
+      const div = document.getElementById('evidence');
+      div.innerHTML += `<p>${text}</p>`;
+    });
   </script>
 </body>
 </html>
