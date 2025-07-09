@@ -1,114 +1,40 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Jury Game Courtroom</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>Jury Game</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Welcome to the Jury Game</h1>
-  <div id="login">
-    <input id="username" placeholder="Enter your name" />
-    <button id="joinBtn">Join</button>
-  </div>
+  <div class="courtroom">
+    <header>
+      <h1>⚖️ Jury Game</h1>
+      <div id="phaseDisplay">Waiting for GM to start...</div>
+      <div id="timer">02:00:00</div>
+    </header>
 
-  <div id="game" style="display:none;">
-    <p id="roleInfo"></p>
-    <p id="phaseInfo"></p>
-    <p id="timer"></p>
-    <p id="message"></p>
-    <p>Players joined: <span id="playerCount"></span></p>
+    <main>
+      <section id="gameArea">
+        <div id="evidenceDisplay"></div>
+        <div id="votingInterface" class="hidden">
+          <button class="vote-btn" data-vote="guilty">Guilty</button>
+          <button class="vote-btn" data-vote="not_guilty">Not Guilty</button>
+        </div>
+      </section>
 
-    <div id="gmControls" style="display:none;">
-      <button id="startBtn">Start Game</button>
-      <button id="nextBtn">Next Phase</button>
-      <input id="evidenceText" placeholder="Evidence text" />
-      <input id="recipient" placeholder="Juror # or 'all'" />
-      <button id="sendEvidenceBtn">Send Evidence</button>
-      <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="file" />
-        <button type="submit">Upload File</button>
-      </form>
+      <section id="chatArea">
+        <div id="messages"></div>
+        <input id="messageInput" placeholder="Type your message...">
+        <button id="sendMessage">Send</button>
+      </section>
+    </main>
+
+    <div id="gmPanel" class="hidden">
+      <input type="file" id="evidenceUpload">
+      <button id="startGame">Start Game</button>
+      <button id="nextPhase">Next Phase</button>
     </div>
-
-    <div id="votes">
-      <input id="vote" placeholder="Your Vote" />
-      <button id="voteBtn">Submit Vote</button>
-    </div>
-
-    <div id="evidence"></div>
   </div>
-
   <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const joinBtn = document.getElementById('joinBtn');
-    const startBtn = document.getElementById('startBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const voteBtn = document.getElementById('voteBtn');
-    const sendEvidenceBtn = document.getElementById('sendEvidenceBtn');
-
-    joinBtn.onclick = () => {
-      socket.emit('join', document.getElementById('username').value);
-    };
-
-    startBtn.onclick = () => socket.emit('startGame');
-    nextBtn.onclick = () => socket.emit('nextPhase');
-
-    voteBtn.onclick = () => {
-      socket.emit('submitVote', {
-        jurorNumber: document.getElementById('roleInfo').dataset.juror,
-        vote: document.getElementById('vote').value
-      });
-    };
-
-    sendEvidenceBtn.onclick = () => {
-      socket.emit('sendEvidence', {
-        text: document.getElementById('evidenceText').value,
-        recipient: document.getElementById('recipient').value
-      });
-    };
-
-    socket.on('joinedGM', () => {
-      document.getElementById('login').style.display = 'none';
-      document.getElementById('game').style.display = 'block';
-      document.getElementById('gmControls').style.display = 'block';
-    });
-
-    socket.on('joinedPlayer', data => {
-      document.getElementById('login').style.display = 'none';
-      document.getElementById('game').style.display = 'block';
-      const roleInfo = document.getElementById('roleInfo');
-      roleInfo.innerText = `Juror #${data.jurorNumber} - Your role: ${data.role}`;
-      roleInfo.dataset.juror = data.jurorNumber;
-    });
-
-    socket.on('updatePlayers', count => {
-      document.getElementById('playerCount').innerText = count;
-    });
-
-    socket.on('message', msg => {
-      document.getElementById('message').innerText = msg;
-    });
-
-    socket.on('phaseChanged', phase => {
-      document.getElementById('phaseInfo').innerText = `Phase: ${phase}`;
-    });
-
-    socket.on('timer', seconds => {
-      const mins = Math.floor(seconds / 60);
-      const secs = seconds % 60;
-      document.getElementById('timer').innerText = `Time Left: ${mins}:${secs}`;
-    });
-
-    socket.on('voteUpdate', text => {
-      document.getElementById('message').innerText = text;
-    });
-
-    socket.on('newEvidence', text => {
-      const div = document.getElementById('evidence');
-      div.innerHTML += `<p>${text}</p>`;
-    });
-  </script>
+  <script src="client.js"></script>
 </body>
 </html>
