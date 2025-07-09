@@ -1,21 +1,58 @@
 body {
-  background-color: #1e1e1e;
-  color: #f0e6d2;
-  font-family: Arial, sans-serif;
+  background: #111;
+  color: #f0f0f0;
+  font-family: 'Georgia', serif;
+  margin: 0;
+  padding: 20px;
+}
+
+.courtroom {
+  max-width: 1000px;
+  margin: 0 auto;
+  border: 2px solid #8B4513;
+  padding: 20px;
+  border-radius: 5px;
+}
+
+header {
   text-align: center;
-  padding: 40px;
+  border-bottom: 1px solid #8B4513;
+  padding-bottom: 10px;
 }
 
-input, button {
+#phaseDisplay {
+  font-size: 1.2em;
+  color: #8B4513;
+  margin: 10px 0;
+}
+
+#timer {
+  font-size: 2em;
+  font-family: monospace;
+}
+
+#gameArea, #chatArea {
+  margin: 20px 0;
+  padding: 15px;
+  background: #222;
+  border-radius: 5px;
+}
+
+.hidden { display: none; }
+
+.vote-btn {
+  background: #8B4513;
+  color: white;
+  border: none;
+  padding: 10px 20px;
   margin: 5px;
-  padding: 8px;
+  cursor: pointer;
 }
 
-#gmControls, #votes {
-  margin-top: 20px;
-}
-
-a {
-  color: #c19a6b;
-  text-decoration: none;
+#messages {
+  height: 300px;
+  overflow-y: scroll;
+  border: 1px solid #444;
+  padding: 10px;
+  margin-bottom: 10px;
 }
