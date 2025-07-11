@@ -1,47 +1,56 @@
 const socket = io();
-let isGM = false;
-let myRole = null;
+const intro = document.getElementById('intro');
+const introVideo = document.getElementById('introVideo');
+const skipVideo = document.getElementById('skipVideo');
+const login = document.getElementById('login');
+const game = document.getElementById('game');
 
-// DOM Elements
-const phaseDisplay = document.getElementById('phaseDisplay');
-const timerDisplay = document.getElementById('timer');
-const gmPanel = document.getElementById('gmPanel');
+introVideo.onended = () => { intro.classList.add('hidden'); login.classList.remove('hidden'); };
+skipVideo.onclick = () => { intro.classList.add('hidden'); login.classList.remove('hidden'); };
 
-// Join game
-const username = prompt('Enter your name:') || 'Juror';
-if (username.toLowerCase() === 'ayaatgm') isGM = true;
-socket.emit('join', username);
+document.getElementById('joinBtn').onclick = () => {
+  const name = document.getElementById('nameInput').value;
+  const isGM = document.getElementById('isGM').checked;
+  socket.emit('join', { name, isGM });
+  login.classList.add('hidden');
+  game.classList.remove('hidden');
+};
 
-// Socket listeners
-socket.on('roleAssigned', (data) => {
-  myRole = data.role;
-  if (isGM) gmPanel.classList.remove('hidden');
+socket.on('assignRole', ({ role, jurorNumber }) => {
+  document.getElementById('role').innerText = `${role}`;
 });
 
-socket.on('phaseChange', (phase) => {
-  phaseDisplay.textContent = `Phase: ${phase}`;
+socket.on('gmJoined', () => {
+  document.getElementById('gmControls').classList.remove('hidden');
 });
 
-socket.on('newEvidence', (evidence) => {
-  const evidenceDiv = document.createElement('div');
-  evidenceDiv.className = 'evidence';
-  evidenceDiv.innerHTML = `<a href="${evidence.path}" target="_blank">${evidence.name}</a>`;
-  document.getElementById('evidenceDisplay').appendChild(evidenceDiv);
+socket.on('updatePlayers', players => {
+  document.getElementById('players').innerHTML = players.map(p => `<li>${p}</li>`).join('');
 });
 
-// Timer logic
-function updateTimer(seconds) {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-  timerDisplay.textContent = `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+socket.on('phase', phase => { document.getElementById('phase').innerText = phase; });
+socket.on('timer', time => { document.getElementById('timer').innerText = `Time left: ${time}s`; });
+socket.on('message', msg => { addMessage(`SYSTEM: ${msg}`); });
+socket.on('chat', msg => { addMessage(msg); });
+
+document.getElementById('startGame').onclick = () => socket.emit('startGame');
+document.getElementById('nextPhase').onclick = () => socket.emit('nextPhase');
+
+document.querySelectorAll('.voteBtn').forEach(btn => {
+  btn.onclick = () => {
+    const vote = btn.dataset.vote;
+    socket.emit('vote', vote);
+  };
+});
+
+document.getElementById('sendChat').onclick = () => {
+  const msg = document.getElementById('chatInput').value;
+  socket.emit('sendChat', msg);
+  document.getElementById('chatInput').value = '';
+};
+
+function addMessage(msg) {
+  const messages = document.getElementById('messages');
+  messages.innerHTML += `<div>${msg}</div>`;
+  messages.scrollTop = messages.scrollHeight;
 }
-
-// GM controls
-document.getElementById('startGame')?.addEventListener('click', () => {
-  socket.emit('startGame');
-});
-
-document.getElementById('nextPhase')?.addEventListener('click', () => {
-  socket.emit('nextPhase');
-});
