@@ -1,39 +1,50 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
   <title>Jury Game</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="courtroom">
-    <header>
-      <h1>⚖️ Jury Game</h1>
-      <div id="phaseDisplay">Waiting for GM to start...</div>
-      <div id="timer">02:00:00</div>
-    </header>
+  <div id="intro" class="center">
+    <video id="introVideo" controls autoplay class="video">
+      <source src="Welcome to the courtroom.mp4" type="video/mp4">
+    </video>
+    <button id="skipVideo">Skip</button>
+  </div>
 
-    <main>
-      <section id="gameArea">
-        <div id="evidenceDisplay"></div>
-        <div id="votingInterface" class="hidden">
-          <button class="vote-btn" data-vote="guilty">Guilty</button>
-          <button class="vote-btn" data-vote="not_guilty">Not Guilty</button>
-        </div>
-      </section>
+  <div id="login" class="center hidden">
+    <input id="nameInput" placeholder="Enter your name"/>
+    <label><input type="checkbox" id="isGM"/> I am the GM</label>
+    <button id="joinBtn">Join Game</button>
+  </div>
 
-      <section id="chatArea">
-        <div id="messages"></div>
-        <input id="messageInput" placeholder="Type your message...">
-        <button id="sendMessage">Send</button>
-      </section>
-    </main>
-
-    <div id="gmPanel" class="hidden">
-      <input type="file" id="evidenceUpload">
-      <button id="startGame">Start Game</button>
-      <button id="nextPhase">Next Phase</button>
+  <div id="game" class="hidden">
+    <div class="sidebar">
+      <h2>Players</h2>
+      <ul id="players"></ul>
+      <h3>Your Role</h3>
+      <p id="role"></p>
+    </div>
+    <div class="main">
+      <h1 id="phase"></h1>
+      <h2 id="timer"></h2>
+      <div id="voteArea">
+        <button class="voteBtn" data-vote="Guilty">Vote Guilty</button>
+        <button class="voteBtn" data-vote="Not Guilty">Vote Not Guilty</button>
+      </div>
+      <div id="gmControls" class="hidden">
+        <button id="startGame">Start Game</button>
+        <button id="nextPhase">Next Phase</button>
+      </div>
+    </div>
+    <div class="chat">
+      <div id="messages"></div>
+      <input id="chatInput" placeholder="Type..."/>
+      <button id="sendChat">Send</button>
     </div>
   </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
 </body>
